@@ -15,7 +15,9 @@ function appHarness(){
   const elements=Object.fromEntries(['grid','toast','save','load','fullscreen'].map(id=>['#'+id,new Element('div')]));
   const events={};const storage=new Map();
   const context={parseSource,document:{querySelector:id=>elements[id],createElement:tag=>new Element(tag)},window:{addEventListener:(name,handler)=>events[name]=handler},localStorage:{setItem:(key,value)=>storage.set(key,value),getItem:key=>storage.get(key)},setTimeout:()=>1,clearTimeout(){}};
-  vm.runInNewContext(readFileSync(new URL('./public/app.js',import.meta.url),'utf8').replace(/^import .*;\n/,''),context);
+  // Windows checkouts may use CRLF; exercise that form on every platform.
+  const source=readFileSync(new URL('./public/app.js',import.meta.url),'utf8').replace(/\r?\n/g,'\r\n');
+  vm.runInNewContext(source.replace(/^import [^\r\n]*;\r?\n/,''),context);
   function add(index,url){const form=elements['#grid'].children[index].querySelectorAll('form')[0];form.children[0].value=url;form.onsubmit({preventDefault(){}});}
   return {elements,events,add};
 }

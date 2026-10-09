@@ -2,13 +2,14 @@ name: Build Windows Desktop App
 on:
   push:
     branches: [main]
-    paths: ['desktop/**', 'public/sources.js', 'package.json', 'package-lock.json', 'desktop-layout.test.js', '.github/workflows/desktop.yml']
+    paths: ['desktop/**', 'public/sources.js', 'public/app.js', 'package.json', 'package-lock.json', '*.test.js', '.gitattributes', '.github/workflows/desktop.yml']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   windows:
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
