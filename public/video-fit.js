@@ -4,7 +4,7 @@ const defaults=()=>({ratio:'auto',fit:'cover'});
 let preferences=Array.from({length:9},defaults);
 try{
   const saved=JSON.parse(localStorage.getItem('quad-live:video-fit:v1'));
-  if(Array.isArray(saved)&&saved.length>=1&&saved.length<=9)preferences=saved.map(value=>{try{parseRatio(value.ratio);return {ratio:value.ratio,fit:value.fit==='contain'?'contain':'cover'};}catch{return defaults();}}).concat(Array.from({length:9-saved.length},defaults));
+  if(Array.isArray(saved)&&saved.length>=1&&saved.length<=9)preferences=saved.map(value=>{try{parseRatio(value.ratio);return {ratio:value.ratio,fit:value.fit==='contain'?'contain':'cover',paneFit:value.paneFit===true};}catch{return defaults();}}).concat(Array.from({length:9-saved.length},defaults));
 }catch{}
 function persist(){try{localStorage.setItem('quad-live:video-fit:v1',JSON.stringify(preferences));}catch{}}
 function bind(){
@@ -32,19 +32,27 @@ function bind(){
       const size=frameSize(width,height,parseRatio(config.ratio),config.fit);
       frame.style.width=size.width+'px';frame.style.height=size.height+'px';
       frame.style.left='50%';frame.style.top='50%';frame.style.transform='translate(-50%,-50%)';
-      fit.textContent='여백 제거';
+      fit.textContent=config.paneFit?'여백 적용됨':'여백 제거';fit.setAttribute('aria-pressed',String(!!config.paneFit));
       crop.textContent=config.fit==='cover'&&config.ratio!=='auto'?'전체 보기':'확대 채우기';crop.disabled=config.ratio==='auto';crop.setAttribute('aria-pressed',String(config.fit==='cover'&&config.ratio!=='auto'));
     }
     function change(){
-      try{const value=ratio.value==='custom'?custom.value:ratio.value;parseRatio(value);config={ratio:value,fit:'contain'};preferences[index]=config;custom.hidden=ratio.value!=='custom';error.textContent='';apply();persist();}
+      try{const value=ratio.value==='custom'?custom.value:ratio.value;parseRatio(value);config={ratio:value,fit:'contain',paneFit:false};window.dispatchEvent(new CustomEvent('quad:unfit-pane',{detail:{slot:index}}));preferences[index]=config;custom.hidden=ratio.value!=='custom';error.textContent='';apply();persist();}
       catch(e){custom.hidden=false;error.textContent=e.message;}
     }
     ratio.onchange=change;custom.onchange=change;
-    fit.onclick=()=>{if(config.ratio==='auto'){config.ratio='9:16';ratio.value='9:16';custom.hidden=true;}config.fit='contain';preferences[index]=config;apply();persist();window.dispatchEvent(new CustomEvent('quad:fit-pane',{detail:{slot:index,ratio:parseRatio(config.ratio)}}));};
-    crop.onclick=()=>{config.fit=config.fit==='cover'?'contain':'cover';preferences[index]=config;apply();persist();};
+    fit.onclick=()=>{if(config.ratio==='auto'){config.ratio='9:16';ratio.value='9:16';custom.hidden=true;}config.fit='contain';config.paneFit=true;preferences[index]=config;apply();persist();window.dispatchEvent(new CustomEvent('quad:fit-pane',{detail:{slot:index,ratio:parseRatio(config.ratio)}}));};
+    crop.onclick=()=>{config.paneFit=false;window.dispatchEvent(new CustomEvent('quad:unfit-pane',{detail:{slot:index}}));config.fit=config.fit==='cover'?'contain':'cover';preferences[index]=config;apply();persist();};
     settings.append(ratio,custom,fit,crop,error);card.querySelector('.bar').append(settings);
-    const observer=new ResizeObserver(apply);observer.observe(viewport);bindings.set(card,{frame,observer});apply();
+    const observer=new ResizeObserver(apply);observer.observe(viewport);bindings.set(card,{frame,observer,apply});apply();if(config.paneFit)requestAnimationFrame(()=>window.dispatchEvent(new CustomEvent('quad:fit-pane',{detail:{slot:index,ratio:parseRatio(config.ratio)}})));
   });
 }
 new MutationObserver(bind).observe(grid,{childList:true,subtree:true});
 bind();
+
+window.addEventListener('quad:reset-fit',()=>{preferences.forEach(config=>config.paneFit=false);bindings.forEach(binding=>binding.apply());persist();});
+
+window.addEventListener('quad:restore-fit',event=>{
+ if(!Array.isArray(event.detail)||event.detail.length<1||event.detail.length>9)return;
+ preferences=event.detail.map(value=>{try{parseRatio(value.ratio);return {ratio:value.ratio,fit:value.fit==='contain'?'contain':'cover',paneFit:value.paneFit===true};}catch{return defaults();}}).concat(Array.from({length:9-event.detail.length},defaults));
+ bindings.forEach(binding=>binding.observer.disconnect());bindings.clear();grid.querySelectorAll('.video-settings').forEach(settings=>settings.remove());persist();bind();
+});

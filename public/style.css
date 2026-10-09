@@ -77,3 +77,11 @@ html:fullscreen .player-body>.player-viewport{height:100%}
 /* A fitted portrait pane keeps its controls in a compact scrollable bar. */
 .card.pane-fitted .bar{height:36px;min-height:36px;max-height:36px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
 .card.pane-fitted .bar>span,.card.pane-fitted .bar>div{flex-shrink:0;flex-wrap:nowrap}
+.move-pane{cursor:grab;touch-action:none;flex-shrink:0}
+.move-pane:active{cursor:grabbing}
+.move-target{outline:3px solid #b69aff;outline-offset:-3px}
+body.moving-pane{user-select:none}
+body.moving-pane iframe{pointer-events:none}
+.moving-card{z-index:10;box-shadow:0 0 0 2px #b69aff}
+.grid.free-layout>.resize-handle{display:none!important}
+#free-layout[aria-pressed=true]{background:#5c437e;color:white}

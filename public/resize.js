@@ -17,9 +17,16 @@ function apply(){
       const left=rect.width*columns[col]/100+(col?gap/2:0);
       const right=rect.width*columns[col+1]/100-(col<columns.length-2?gap/2:0);
       const card=cards[index++];
-      let finalLeft=left,width=right-left;
-      if(columns.length===2&&card.dataset.fitRatio){const ratio=Number(card.dataset.fitRatio);const bodyHeight=Math.max(1,bottom-top-card.querySelector('.bar').getBoundingClientRect().height-2);width=Math.min(width,bodyHeight*ratio+2);finalLeft+=(right-left-width)/2;}
-      for(const [key,value] of Object.entries({left:finalLeft,top,width,height:bottom-top}))card.style.setProperty('--pane-'+key,value+'px');
+      let finalLeft=left,finalTop=top,width=right-left,height=bottom-top;
+      if(card.dataset.fitRatio){
+        const ratio=Number(card.dataset.fitRatio),bar=card.querySelector('.bar').getBoundingClientRect().height;
+        const chat=card.querySelector('.chat-panel');const chatWidth=chat?Math.min(width*.32,Math.max(120,width*.32)):0;
+        const bodyHeight=Math.min(Math.max(1,height-bar-2),Math.max(1,(width-chatWidth-2)/ratio));
+        const fittedWidth=Math.min(width,bodyHeight*ratio+chatWidth+2),fittedHeight=Math.min(height,bodyHeight+bar+2);
+        finalLeft+=(width-fittedWidth)/2;finalTop+=(height-fittedHeight)/2;width=fittedWidth;height=fittedHeight;
+      }
+      if(grid.classList.contains('free-layout')&&card.dataset.freeX!==undefined){finalLeft=Math.max(0,Math.min(rect.width-width,Number(card.dataset.freeX)*rect.width));finalTop=Math.max(0,Math.min(rect.height-height,Number(card.dataset.freeY)*rect.height));}
+      for(const [key,value] of Object.entries({left:finalLeft,top:finalTop,width,height}))card.style.setProperty('--pane-'+key,value+'px');
     }
   });
   for(const handle of handles){
@@ -44,7 +51,7 @@ function makeHandle(axis,row,boundary){
   handles.push(handle);grid.append(handle);
 }
 function rebuild(){
-  const next=[...grid.querySelectorAll('.card')];const key=next.map(card=>card.dataset.slot).join(',');
+  const next=[...grid.querySelectorAll('.card')].sort((a,b)=>Number(a.dataset.position)-Number(b.dataset.position));const key=next.map(card=>card.dataset.slot).join(',');
   if(key===signature&&next.every((card,index)=>card===cards[index]))return;signature=key;cards=next;count=cards.length;if(count<1||count>9)return;
   handles.forEach(handle=>handle.remove());handles=[];document.body.classList.remove('resizing');
   current=validateLayout(count,layouts[count]);layouts[count]=current;
@@ -52,25 +59,16 @@ function rebuild(){
   current.columns.forEach((list,row)=>{for(let col=1;col<list.length-1;col++)makeHandle('column',row,col);});
   apply();
 }
-reset.onclick=()=>{cards.forEach(card=>{delete card.dataset.fitRatio;card.classList.remove('pane-fitted');});current=defaultLayout(count);apply();save();};
-function fitPane(slot,ratio,attempt=0){
+reset.onclick=()=>{cards.forEach(card=>{delete card.dataset.fitRatio;card.classList.remove('pane-fitted');});current=defaultLayout(count);apply();save();window.dispatchEvent(new Event('quad:reset-fit'));window.dispatchEvent(new Event('quad:reset-positions'));};
+function fitPane(slot,ratio){
   if(!Number.isFinite(ratio)||ratio<0.1||ratio>10)return;
-  const index=cards.findIndex(card=>Number(card.dataset.slot)===slot);if(index<0)return;
-  let offset=0,row=0;
-  while(row<current.columns.length&&index>=offset+current.columns[row].length-1){offset+=current.columns[row].length-1;row++;}
-  const columns=current.columns[row],col=index-offset,card=cards[index];card.classList.add('pane-fitted');
-  const viewport=card.querySelector('.player-viewport');if(!viewport)return;
-  if(columns.length===2){card.dataset.fitRatio=String(ratio);apply();if(attempt<4)requestAnimationFrame(()=>fitPane(slot,ratio,attempt+1));return;}
-  const rect=grid.getBoundingClientRect(),gap=document.fullscreenElement?8:10;
-  const chat=card.querySelector('.chat-panel');
-  const desired=viewport.getBoundingClientRect().height*ratio+2+(chat?chat.getBoundingClientRect().width:0);
-  const delta=100*(desired+(col?gap/2:0)+(col<columns.length-2?gap/2:0))/rect.width;
-  if(col<columns.length-2)moveBoundary(columns,col+1,columns[col]+delta);
-  else moveBoundary(columns,col,columns[col+1]-delta);
-  apply();save();if(attempt<4)requestAnimationFrame(()=>fitPane(slot,ratio,attempt+1));
+  const card=cards.find(card=>Number(card.dataset.slot)===slot);if(!card)return;
+  card.dataset.fitRatio=String(ratio);card.classList.add('pane-fitted');apply();
 }
 window.addEventListener('quad:fit-pane',event=>{const {slot,ratio}=event.detail||{};fitPane(slot,ratio);});
-new MutationObserver(rebuild).observe(grid,{childList:true});
+window.addEventListener('quad:unfit-pane',event=>{const card=cards.find(card=>Number(card.dataset.slot)===event.detail?.slot);if(card){delete card.dataset.fitRatio;card.classList.remove('pane-fitted');apply();}});
+new MutationObserver(rebuild).observe(grid,{childList:true,subtree:true,attributes:true,attributeFilter:['data-position']});
+window.addEventListener('resize',apply);
 new ResizeObserver(apply).observe(grid);
 document.addEventListener('fullscreenchange',()=>{document.body.classList.remove('resizing');apply();});
 rebuild();

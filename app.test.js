@@ -45,6 +45,15 @@ test('removing a middle pane keeps later player handlers usable',()=>{
   assert.equal(grid.querySelectorAll('iframe').length,1);
   elements['#add-pane'].onclick();assert.equal(grid.children.length,4);
 });
+test('swapping panes preserves player nodes and saves streams in the new order',()=>{
+  const {elements,events,add,storage}=appHarness();
+  const first='https://youtube.com/watch?v=aaaaaaaaaaa',last='https://youtube.com/watch?v=bbbbbbbbbbb';
+  add(0,first);add(3,last);const frames=elements['#grid'].querySelectorAll('iframe');
+  events['quad:swap-panes']({detail:{from:0,to:3}});
+  assert.deepEqual(elements['#grid'].querySelectorAll('iframe'),frames);
+  assert.equal(elements['#grid'].children[0].dataset.position,'3');
+  elements['#save'].onclick();const saved=JSON.parse(storage.get('quad-live:v1'));assert.equal(saved[0],last);assert.equal(saved[3],first);
+});
 test('YouTube chat opens for the current host and closes without reloading the video',()=>{
   const {elements,add}=appHarness();add(0,'https://youtube.com/watch?v=dQw4w9WgXcQ');
   const card=elements['#grid'].children[0],video=card.querySelectorAll('iframe')[0];
