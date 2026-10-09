@@ -85,3 +85,9 @@ body.moving-pane iframe{pointer-events:none}
 .moving-card{z-index:10;box-shadow:0 0 0 2px #b69aff}
 .grid.free-layout>.resize-handle{display:none!important}
 #free-layout[aria-pressed=true]{background:#5c437e;color:white}
+.layout-tools{height:36px;padding:4px 16px;display:flex;align-items:center;gap:7px;border-bottom:1px solid #292b32;background:#17171c;font-size:11px;color:#b6abca;overflow-x:auto;white-space:nowrap}
+.layout-tools select,.layout-tools input{background:#25232d;color:#eee;border:1px solid #46404f;border-radius:4px;padding:3px 5px;font:inherit}
+.layout-tools input{flex:none;width:44px;min-width:44px}.layout-tools button{padding:4px 8px;font-size:10px}.layout-hint{color:#80788c;font-size:10px}
+@media(min-width:761px){main{height:calc(100dvh - 92px)}header .toolbar{overflow-x:auto;min-width:0;flex-wrap:nowrap;white-space:nowrap}header .brand{flex-shrink:0}}
+html:fullscreen .layout-tools{height:32px;padding:3px 12px}
+html:fullscreen main{height:calc(100dvh - 80px)}

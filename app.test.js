@@ -13,9 +13,9 @@ function appHarness(){
     setAttribute(){}
     querySelectorAll(tag){return this.children.flatMap(child=>[...(child.tag===tag?[child]:[]),...child.querySelectorAll(tag)]);}
   }
-  const elements=Object.fromEntries(['grid','toast','save','load','fullscreen','pane-count','add-pane','remove-pane'].map(id=>['#'+id,new Element('div')]));
+  const elements=Object.fromEntries(['grid','toast','save','load','fullscreen','pane-count','add-pane','remove-pane','layout-preset','layout-rows','layout-columns','apply-layout'].map(id=>['#'+id,new Element('div')]));
   const events={};const storage=new Map();
-  const context={parseSource,location:{hostname:'example.test'},document:{querySelector:id=>elements[id],createElement:tag=>new Element(tag)},window:{addEventListener:(name,handler)=>events[name]=handler},localStorage:{setItem:(key,value)=>storage.set(key,value),getItem:key=>storage.get(key)},setTimeout:()=>1,clearTimeout(){}};
+  const context={parseSource,location:{hostname:'example.test'},document:{querySelector:id=>elements[id],createElement:tag=>new Element(tag)},window:{addEventListener:(name,handler)=>events[name]=handler},localStorage:{setItem:(key,value)=>storage.set(key,value),getItem:key=>storage.get(key),removeItem:key=>storage.delete(key)},setTimeout:()=>1,clearTimeout(){}};
   // Windows checkouts may use CRLF; exercise that form on every platform.
   const source=readFileSync(new URL('./public/app.js',import.meta.url),'utf8').replace(/\r?\n/g,'\r\n');
   vm.runInNewContext(source.replace(/^import [^\r\n]*;\r?\n/,''),context);
@@ -78,4 +78,10 @@ test('local network permission delegation is restricted to SOOP players',()=>{
   const [soop,youtube,chzzk]=elements['#grid'].querySelectorAll('iframe');
   for(const feature of ['local-network-access','local-network','loopback-network'])assert.ok(soop.allow.includes(`${feature} https://play.sooplive.com`));
   for(const frame of [youtube,chzzk])assert.ok(!frame.allow.includes('network'));
+});
+
+test('preset arrangements set the exact count and columns and reject more than nine panes',()=>{
+ const {elements}=appHarness();
+ for(const [preset,count,columns] of [['1x3',3,3],['2x2',4,2],['2x3',6,3],['1x4',4,4]]){elements['#layout-preset'].onchange({target:{value:preset}});assert.equal(elements['#grid'].children.length,count);assert.equal(elements['#grid'].dataset.columns,String(columns));}
+ elements['#layout-rows'].value='4';elements['#layout-columns'].value='4';elements['#apply-layout'].onclick();assert.equal(elements['#grid'].children.length,4);
 });

@@ -10,3 +10,10 @@ test('resizing three columns preserves neighboring minimum widths',()=>{
   const boundaries=[0,33,66,100];moveBoundary(boundaries,1,95);assert.equal(boundaries[1],56);moveBoundary(boundaries,2,0);assert.equal(boundaries[2],66);
   assert.deepEqual(validateLayout(9,{rows:[0,0,50,100],columns:[]}),defaultLayout(9));
 });
+test('explicit columns distinguish horizontal, vertical and rectangular arrangements',()=>{
+  assert.deepEqual(rowSizes(3,3),[3]);assert.deepEqual(rowSizes(3,1),[1,1,1]);
+  assert.deepEqual(rowSizes(4,4),[4]);assert.deepEqual(rowSizes(4,2),[2,2]);
+  assert.deepEqual(rowSizes(6,3),[3,3]);assert.deepEqual(rowSizes(6,2),[2,2,2]);
+  const horizontal=defaultLayout(4,4);assert.equal(horizontal.rows.length,2);assert.equal(horizontal.columns[0].length,5);
+  assert.deepEqual(validateLayout(6,defaultLayout(6,2),2),defaultLayout(6,2));
+});

@@ -6,7 +6,7 @@ let order=[];
 function activeSlots(){return order.filter(index=>cards[index]);}
 function syncCount(){const slots=activeSlots(),count=slots.length;slots.forEach((index,position)=>{cards[index].dataset.position=String(position);const label=cards[index].children[0].children[0];label.textContent=label.textContent.replace(/^\d+/,String(position+1).padStart(2,'0'));});try{localStorage.setItem('quad-live:count:v1',String(count));}catch{}document.querySelector('#pane-count').value=String(count);document.querySelector('#add-pane').disabled=count===9;document.querySelector('#remove-pane').disabled=count===1;}
 function removePane(index){if(activeSlots().length===1){notify('최소 한 칸은 유지해야 합니다.');return;}state[index]='';cards[index].remove();cards[index]=null;order=order.filter(slot=>slot!==index);grid.classList.remove('focused');cards.filter(Boolean).forEach(card=>card.classList.remove('expanded'));syncCount();}
-function changeCount(count){if(!Number.isInteger(count)||count<1||count>9)return;while(activeSlots().length<count){const index=cards.findIndex(card=>!card);render(index);}
+function changeCount(count,keepLayout=false){if(!Number.isInteger(count)||count<1||count>9)return;if(!keepLayout){grid.dataset.columns='';try{localStorage.removeItem('quad-live:arrangement:v1');}catch{}if(document.querySelector('#layout-preset'))document.querySelector('#layout-preset').value='auto';}while(activeSlots().length<count){const index=cards.findIndex(card=>!card);render(index);}
 while(activeSlots().length>count){const slots=activeSlots();const empty=slots.filter(index=>!state[index]);removePane((empty.length?empty:slots).at(-1));}syncCount();}
 // Only initialize SOOP frames created by this app, from the expected origin.
 window.addEventListener('message',event=>{
@@ -29,7 +29,7 @@ function render(index,source=''){
     const data=parseSource(source);title.textContent=`${String(index+1).padStart(2,'0')} / ${data.platform}${data.experimental?' · 실험적':''}`;
     const link=document.createElement('a');link.href=data.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='원본 열기';actions.append(link);
     const popup=document.createElement('button');popup.textContent='시청 창';popup.title='별도 창으로 열기 (외부 재생 제한 시 사용)';popup.onclick=()=>{
-      const slots=activeSlots(),position=slots.indexOf(index),columns=slots.length===1?1:slots.length<=4?2:3,rows=Math.ceil(slots.length/columns);
+      const slots=activeSlots(),position=slots.indexOf(index),columns=Number(grid.dataset.columns)||(slots.length===1?1:slots.length<=4?2:3),rows=Math.ceil(slots.length/columns);
       const width=Math.max(320,Math.floor(screen.availWidth/columns)),height=Math.max(240,Math.floor(screen.availHeight/rows));
       const left=(screen.availLeft||0)+(position%columns)*width,top=(screen.availTop||0)+Math.floor(position/columns)*height;
       window.open(data.url,'_blank',`popup=yes,width=${width},height=${height},left=${left},top=${top},noopener,noreferrer`);
@@ -43,10 +43,10 @@ function render(index,source=''){
     if(data.platform==='SOOP')iframe.allow+='; local-network-access https://play.sooplive.com; local-network https://play.sooplive.com; loopback-network https://play.sooplive.com';
     iframe.allowFullscreen=true;iframe.referrerPolicy='strict-origin-when-cross-origin';const viewport=document.createElement('div');viewport.className='player-viewport';viewport.append(iframe);
     const body=document.createElement('div');body.className='player-body';body.append(viewport);card.append(body);
-    const chat=document.createElement('button');chat.textContent=data.platform==='YouTube'?'채팅':'채팅 창';chat.title=data.platform==='YouTube'?'라이브 채팅 패널 열기/닫기':'원본 사이트의 별도 채팅 창 열기';chat.setAttribute('aria-expanded','false');actions.append(chat);
+    const chat=document.createElement('button');chat.textContent=data.platform==='YouTube'?'채팅':data.platform==='SOOP'?'원본 채팅':'채팅 창';chat.title=data.platform==='YouTube'?'라이브 채팅 패널 열기/닫기':'원본 사이트의 별도 채팅 창 열기';chat.setAttribute('aria-expanded','false');actions.append(chat);
     let chatPanel=null;
     chat.onclick=()=>{
-      if(data.platform!=='YouTube'){window.open(data.chat,'_blank','popup=yes,width=420,height=720,noopener,noreferrer');notify('채팅 창을 요청했어요. 열리지 않으면 팝업을 허용하세요. 로그인은 원본 사이트에서 진행하세요.');return;}
+      if(data.platform!=='YouTube'){window.open(data.chat,'_blank',data.platform==='SOOP'?'popup=yes,width=1200,height=850,noopener,noreferrer':'popup=yes,width=420,height=720,noopener,noreferrer');notify(data.platform==='SOOP'?'SOOP 원본 방송 창에서 채팅을 보세요. 채팅만 분리하려면 원본 사이트의 채팅 팝업 기능을 이용하세요.':'채팅 창을 요청했어요. 열리지 않으면 팝업을 허용하세요. 로그인은 원본 사이트에서 진행하세요.');return;}
       if(chatPanel){chatPanel.remove();chatPanel=null;chat.textContent='채팅';chat.setAttribute('aria-expanded','false');return;}
       if(!location.hostname){notify('유튜브 채팅은 웹사이트 주소에서 사용하세요.');return;}
       chatPanel=document.createElement('aside');chatPanel.className='chat-panel';
@@ -72,9 +72,20 @@ for(let i=0;i<initialCount;i++)render(i);syncCount();
 document.querySelector('#add-pane').onclick=()=>changeCount(Math.min(9,activeSlots().length+1));
 document.querySelector('#remove-pane').onclick=()=>changeCount(Math.max(1,activeSlots().length-1));
 document.querySelector('#pane-count').onchange=event=>changeCount(Number(event.target.value));
-document.querySelector('#save').onclick=()=>{try{localStorage.setItem('quad-live:v1',JSON.stringify(activeSlots().map(index=>state[index])));const settings=JSON.parse(localStorage.getItem('quad-live:video-fit:v1')||'[]');localStorage.setItem('quad-live:combination-fit:v1',JSON.stringify(activeSlots().map(index=>settings[index]||{ratio:'auto',fit:'cover',paneFit:false})));notify('현재 방송 조합을 이 브라우저에 저장했어요.');}catch{notify('브라우저 저장소를 사용할 수 없습니다.');}};
-document.querySelector('#load').onclick=()=>{try{const saved=JSON.parse(localStorage.getItem('quad-live:v1'));if(!Array.isArray(saved)||saved.length<1||saved.length>9||!saved.every(x=>typeof x==='string'))throw new Error();saved.filter(Boolean).forEach(parseSource);grid.classList.remove('focused');order=[];cards.forEach((card,index)=>{if(card)card.remove();cards[index]=null;state[index]='';});saved.forEach((x,i)=>{state[i]=x;render(i,x);});syncCount();if(window.dispatchEvent){const fit=JSON.parse(localStorage.getItem('quad-live:combination-fit:v1')||'null');if(Array.isArray(fit)&&fit.length===saved.length)window.dispatchEvent(new CustomEvent('quad:restore-fit',{detail:fit}));}notify('저장한 조합을 불러왔어요.');}catch{notify('불러올 수 있는 방송 조합이 없습니다.');}};
+document.querySelector('#save').onclick=()=>{try{localStorage.setItem('quad-live:v1',JSON.stringify(activeSlots().map(index=>state[index])));const settings=JSON.parse(localStorage.getItem('quad-live:video-fit:v1')||'[]');localStorage.setItem('quad-live:combination-arrangement:v1',JSON.stringify({count:activeSlots().length,columns:Number(grid.dataset.columns)||null}));localStorage.setItem('quad-live:combination-fit:v1',JSON.stringify(activeSlots().map(index=>settings[index]||{ratio:'auto',fit:'cover',paneFit:false})));notify('현재 방송 조합을 이 브라우저에 저장했어요.');}catch{notify('브라우저 저장소를 사용할 수 없습니다.');}};
+document.querySelector('#load').onclick=()=>{try{const saved=JSON.parse(localStorage.getItem('quad-live:v1'));if(!Array.isArray(saved)||saved.length<1||saved.length>9||!saved.every(x=>typeof x==='string'))throw new Error();saved.filter(Boolean).forEach(parseSource);grid.classList.remove('focused');order=[];cards.forEach((card,index)=>{if(card)card.remove();cards[index]=null;state[index]='';});saved.forEach((x,i)=>{state[i]=x;render(i,x);});syncCount();try{const layout=JSON.parse(localStorage.getItem('quad-live:combination-arrangement:v1'));if(layout?.count===saved.length&&Number.isInteger(layout.columns)&&layout.columns>=1&&layout.columns<=9&&saved.length%layout.columns===0)setArrangement(saved.length/layout.columns,layout.columns);else grid.dataset.columns='';}catch{}if(window.dispatchEvent){const fit=JSON.parse(localStorage.getItem('quad-live:combination-fit:v1')||'null');if(Array.isArray(fit)&&fit.length===saved.length)window.dispatchEvent(new CustomEvent('quad:restore-fit',{detail:fit}));}notify('저장한 조합을 불러왔어요.');}catch{notify('불러올 수 있는 방송 조합이 없습니다.');}};
 document.querySelector('#fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{notify('이 브라우저에서는 전체 화면을 사용할 수 없습니다.');}};
 if(document.addEventListener)document.addEventListener('fullscreenchange',()=>{document.querySelector('#fullscreen').textContent=document.fullscreenElement?'전체 화면 종료':'전체 화면';});
 
 window.addEventListener('quad:swap-panes',event=>{const {from,to}=event.detail||{};const a=order.indexOf(from),b=order.indexOf(to);if(a<0||b<0||a===b)return;[order[a],order[b]]=[order[b],order[a]];syncCount();});
+
+function setArrangement(rows,columns){
+ if(!Number.isInteger(rows)||!Number.isInteger(columns)||rows<1||columns<1||rows*columns>9){notify('행과 열은 1 이상이며 총 9칸 이내여야 합니다.');return;}
+ changeCount(rows*columns,true);grid.dataset.columns=String(columns);document.querySelector('#layout-rows').value=String(rows);document.querySelector('#layout-columns').value=String(columns);document.querySelector('#layout-preset').value=rows+'x'+columns;
+ try{localStorage.setItem('quad-live:arrangement:v1',JSON.stringify({rows,columns}));}catch{}
+}
+if(document.querySelector('#layout-preset')){
+ document.querySelector('#layout-preset').onchange=event=>{if(event.target.value==='auto'){grid.dataset.columns='';try{localStorage.removeItem('quad-live:arrangement:v1');}catch{}return;}const [rows,columns]=event.target.value.split('x').map(Number);setArrangement(rows,columns);};
+ document.querySelector('#apply-layout').onclick=()=>setArrangement(Number(document.querySelector('#layout-rows').value),Number(document.querySelector('#layout-columns').value));
+ try{const saved=JSON.parse(localStorage.getItem('quad-live:arrangement:v1'));if(saved&&saved.rows*saved.columns===activeSlots().length)setArrangement(saved.rows,saved.columns);}catch{}
+}

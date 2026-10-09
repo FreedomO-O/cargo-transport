@@ -12,7 +12,7 @@ export function parseSource(input) {
   }
   if(['play.sooplive.com','play.sooplive.co.kr','play.afreecatv.com'].includes(host)&&/^[a-zA-Z0-9_]+$/.test(parts[0]||'')) {
     const channelId=parts[0];
-    return {platform:'SOOP',channelId,chat:`https://play.sooplive.com/${channelId}?vtype=chat`,url:`https://play.sooplive.com/${channelId}${/^\d+$/.test(parts[1]||'')?'/'+parts[1]:''}`,embed:`https://play.sooplive.com/${channelId}/direct?fromApi=1`,experimental:true};
+    return {platform:'SOOP',channelId,chat:`https://play.sooplive.com/${channelId}${/^\d+$/.test(parts[1]||'')?'/'+parts[1]:''}`,url:`https://play.sooplive.com/${channelId}${/^\d+$/.test(parts[1]||'')?'/'+parts[1]:''}`,embed:`https://play.sooplive.com/${channelId}/direct?fromApi=1`,experimental:true};
   }
   if(['chzzk.naver.com','www.chzzk.naver.com'].includes(host)&&parts[0]==='live'&&/^[a-f0-9]{32}$/.test(parts[1]||'')) {
     return {platform:'치지직',chat:`https://chzzk.naver.com/live/${parts[1]}/chat`,url:`https://chzzk.naver.com/live/${parts[1]}`,embed:`https://chzzk.naver.com/live/${parts[1]}?layout=player`,experimental:true};

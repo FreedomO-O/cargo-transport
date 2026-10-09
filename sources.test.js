@@ -10,6 +10,8 @@ test('current SOOP .com URL from reported failure uses direct player and channel
   assert.equal(data.platform,'SOOP');assert.equal(data.channelId,'lgtwinstv');
   assert.equal(data.embed,'https://play.sooplive.com/lgtwinstv/direct?fromApi=1');
   assert.equal(data.url,'https://play.sooplive.com/lgtwinstv/297709179');
+  assert.equal(data.chat,'https://play.sooplive.com/lgtwinstv/297709179');
+  assert.ok(!data.chat.includes('vtype=chat'));
 });
 test('legacy SOOP addresses normalize to the current host',()=>{
   for(const host of ['play.sooplive.co.kr','play.afreecatv.com'])assert.equal(parseSource(`https://${host}/example/123`).url,'https://play.sooplive.com/example/123');

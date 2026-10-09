@@ -43,7 +43,7 @@ function bind(){
     fit.onclick=()=>{if(config.ratio==='auto'){config.ratio='9:16';ratio.value='9:16';custom.hidden=true;}config.fit='contain';config.paneFit=true;preferences[index]=config;apply();persist();window.dispatchEvent(new CustomEvent('quad:fit-pane',{detail:{slot:index,ratio:parseRatio(config.ratio)}}));};
     crop.onclick=()=>{config.paneFit=false;window.dispatchEvent(new CustomEvent('quad:unfit-pane',{detail:{slot:index}}));config.fit=config.fit==='cover'?'contain':'cover';preferences[index]=config;apply();persist();};
     settings.append(ratio,custom,fit,crop,error);card.querySelector('.bar').append(settings);
-    const observer=new ResizeObserver(apply);observer.observe(viewport);bindings.set(card,{frame,observer,apply});apply();if(config.paneFit)requestAnimationFrame(()=>window.dispatchEvent(new CustomEvent('quad:fit-pane',{detail:{slot:index,ratio:parseRatio(config.ratio)}})));
+    const observer=new ResizeObserver(apply);observer.observe(viewport);bindings.set(card,{frame,observer,apply,fit:fit.onclick});apply();if(config.paneFit)requestAnimationFrame(()=>window.dispatchEvent(new CustomEvent('quad:fit-pane',{detail:{slot:index,ratio:parseRatio(config.ratio)}})));
   });
 }
 new MutationObserver(bind).observe(grid,{childList:true,subtree:true});
@@ -56,3 +56,5 @@ window.addEventListener('quad:restore-fit',event=>{
  preferences=event.detail.map(value=>{try{parseRatio(value.ratio);return {ratio:value.ratio,fit:value.fit==='contain'?'contain':'cover',paneFit:value.paneFit===true};}catch{return defaults();}}).concat(Array.from({length:9-event.detail.length},defaults));
  bindings.forEach(binding=>binding.observer.disconnect());bindings.clear();grid.querySelectorAll('.video-settings').forEach(settings=>settings.remove());persist();bind();
 });
+
+document.querySelector('#fit-all').onclick=()=>bindings.forEach(binding=>binding.fit());
