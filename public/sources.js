@@ -10,11 +10,12 @@ export function parseSource(input) {
     if(!/^[\w-]{11}$/.test(id||''))throw new Error('유튜브 영상 또는 라이브 방송 주소를 입력하세요. 채널 주소는 지원하지 않습니다.');
     return {platform:'YouTube',url:url.href,embed:`https://www.youtube.com/embed/${id}?autoplay=1&mute=1&playsinline=1`,experimental:false};
   }
-  if(['play.sooplive.co.kr','play.afreecatv.com'].includes(host)&&/^[a-zA-Z0-9_]+$/.test(parts[0]||'')) {
-    return {platform:'SOOP',url:url.href,embed:`https://player.sooplive.co.kr/${parts[0]}/embed`,experimental:true};
+  if(['play.sooplive.com','play.sooplive.co.kr','play.afreecatv.com'].includes(host)&&/^[a-zA-Z0-9_]+$/.test(parts[0]||'')) {
+    const channelId=parts[0];
+    return {platform:'SOOP',channelId,url:`https://play.sooplive.com/${channelId}${/^\d+$/.test(parts[1]||'')?'/'+parts[1]:''}`,embed:`https://play.sooplive.com/${channelId}/direct?fromApi=1`,experimental:true};
   }
   if(['chzzk.naver.com','www.chzzk.naver.com'].includes(host)&&parts[0]==='live'&&/^[a-f0-9]{32}$/.test(parts[1]||'')) {
-    return {platform:'치지직',url:url.href,embed:`https://chzzk.naver.com/embed/live/${parts[1]}`,experimental:true};
+    return {platform:'치지직',url:`https://chzzk.naver.com/live/${parts[1]}`,embed:`https://chzzk.naver.com/live/${parts[1]}?layout=player`,experimental:true};
   }
   throw new Error('유튜브 영상, SOOP 방송, 치지직 live 주소를 입력하세요.');
 }

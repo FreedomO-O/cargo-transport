@@ -1,6 +1,13 @@
 import {parseSource} from './sources.js';
 const grid=document.querySelector('#grid');
 const state=Array(4).fill('');
+// Only initialize SOOP frames created by this app, from the expected origin.
+window.addEventListener('message',event=>{
+  if(event.origin!=='https://play.sooplive.com'||!event.data||event.data.cmd!=='PonReady')return;
+  const frame=[...grid.querySelectorAll('iframe')].find(frame=>frame.contentWindow===event.source&&frame.dataset.platform==='SOOP');
+  if(!frame)return;
+  frame.contentWindow.postMessage({cmd:'Pload',id:frame.dataset.channelId,mutePlay:true,showChat:false,autoPlay:true,isAdShow:true,showQualityBox:true,fromApi:'1'},'https://play.sooplive.com');
+});
 function notify(message){const toast=document.querySelector('#toast');toast.textContent=message;toast.classList.add('visible');clearTimeout(notify.timer);notify.timer=setTimeout(()=>toast.classList.remove('visible'),3500);}
 function render(index,source=''){
   let card=grid.children[index];
@@ -12,9 +19,17 @@ function render(index,source=''){
   if(source){
     const data=parseSource(source);title.textContent=`${String(index+1).padStart(2,'0')} / ${data.platform}${data.experimental?' · 실험적':''}`;
     const link=document.createElement('a');link.href=data.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='원본 열기';actions.append(link);
+    const popup=document.createElement('button');popup.textContent='시청 창';popup.title='별도 창으로 열기 (외부 재생 제한 시 사용)';popup.onclick=()=>{
+      const width=Math.max(320,Math.floor(screen.availWidth/2)),height=Math.max(240,Math.floor(screen.availHeight/2));
+      const left=(screen.availLeft||0)+(index%2)*width,top=(screen.availTop||0)+Math.floor(index/2)*height;
+      window.open(data.url,'_blank',`popup=yes,width=${width},height=${height},left=${left},top=${top},noopener,noreferrer`);
+      // noopener can return null even when the window opened.
+      notify('시청 창을 요청했어요. 열리지 않으면 브라우저에서 팝업을 허용하세요. 위치는 브라우저 설정에 따라 달라질 수 있어요.');
+    };actions.append(popup);
     const expand=document.createElement('button');expand.textContent='확대';expand.onclick=()=>{const on=card.classList.toggle('expanded');grid.classList.toggle('focused',on);expand.textContent=on?'복원':'확대';};actions.append(expand);
     const remove=document.createElement('button');remove.textContent='닫기';remove.onclick=()=>{state[index]='';grid.classList.remove('focused');card.classList.remove('expanded');render(index);};actions.append(remove);
-    const iframe=document.createElement('iframe');iframe.src=data.embed;iframe.title=`${data.platform} 방송 ${index+1}`;iframe.allow='autoplay; encrypted-media; fullscreen; picture-in-picture';iframe.allowFullscreen=true;iframe.referrerPolicy='strict-origin-when-cross-origin';card.append(iframe);
+    const iframe=document.createElement('iframe');iframe.src=data.embed;iframe.dataset.platform=data.platform;if(data.channelId)iframe.dataset.channelId=/^\d+$/.test(data.channelId)?'#'+data.channelId:data.channelId;iframe.title=`${data.platform} 방송 ${index+1}`;iframe.allow='autoplay; encrypted-media; fullscreen; picture-in-picture';iframe.allowFullscreen=true;iframe.referrerPolicy='strict-origin-when-cross-origin';card.append(iframe);
+    if(data.experimental){const help=document.createElement('p');help.className='player-help';help.textContent=data.platform==='치지직'?'치지직이 외부 삽입을 차단하면 이 칸에서 재생할 수 없습니다. 위의 ‘시청 창’으로 원본 방송을 보세요.':'재생되지 않으면 ‘시청 창’을 이용하세요. 로그인·인증은 원본 사이트에서 진행하세요.';card.append(help);}
     return;
   }
   const empty=document.createElement('div');empty.className='empty';
