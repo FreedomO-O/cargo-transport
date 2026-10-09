@@ -35,3 +35,12 @@ test('SOOP handshake only responds to the exact registered player and origin',()
   assert.equal(frame.contentWindow.messages.length,1);
   const {data,origin}=frame.contentWindow.messages[0];assert.equal(origin,'https://play.sooplive.com');assert.equal(data.cmd,'Pload');assert.equal(data.id,'lgtwinstv');assert.equal(data.autoPlay,true);assert.equal(data.mutePlay,true);
 });
+test('local network permission delegation is restricted to SOOP players',()=>{
+  const {elements,add}=appHarness();
+  add(0,'https://play.sooplive.com/lgtwinstv/297709179');
+  add(1,'https://youtube.com/watch?v=dQw4w9WgXcQ');
+  add(2,'https://chzzk.naver.com/live/'+'a'.repeat(32));
+  const [soop,youtube,chzzk]=elements['#grid'].querySelectorAll('iframe');
+  for(const feature of ['local-network-access','local-network','loopback-network'])assert.ok(soop.allow.includes(`${feature} https://play.sooplive.com`));
+  for(const frame of [youtube,chzzk])assert.ok(!frame.allow.includes('network'));
+});

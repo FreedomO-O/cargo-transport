@@ -28,8 +28,11 @@ function render(index,source=''){
     };actions.append(popup);
     const expand=document.createElement('button');expand.textContent='확대';expand.onclick=()=>{const on=card.classList.toggle('expanded');grid.classList.toggle('focused',on);expand.textContent=on?'복원':'확대';};actions.append(expand);
     const remove=document.createElement('button');remove.textContent='닫기';remove.onclick=()=>{state[index]='';grid.classList.remove('focused');card.classList.remove('expanded');render(index);};actions.append(remove);
-    const iframe=document.createElement('iframe');iframe.src=data.embed;iframe.dataset.platform=data.platform;if(data.channelId)iframe.dataset.channelId=/^\d+$/.test(data.channelId)?'#'+data.channelId:data.channelId;iframe.title=`${data.platform} 방송 ${index+1}`;iframe.allow='autoplay; encrypted-media; fullscreen; picture-in-picture';iframe.allowFullscreen=true;iframe.referrerPolicy='strict-origin-when-cross-origin';card.append(iframe);
-    if(data.experimental){const help=document.createElement('p');help.className='player-help';help.textContent=data.platform==='치지직'?'치지직이 외부 삽입을 차단하면 이 칸에서 재생할 수 없습니다. 위의 ‘시청 창’으로 원본 방송을 보세요.':'재생되지 않으면 ‘시청 창’을 이용하세요. 로그인·인증은 원본 사이트에서 진행하세요.';card.append(help);}
+    const iframe=document.createElement('iframe');iframe.src=data.embed;iframe.dataset.platform=data.platform;if(data.channelId)iframe.dataset.channelId=/^\d+$/.test(data.channelId)?'#'+data.channelId:data.channelId;iframe.title=`${data.platform} 방송 ${index+1}`;iframe.allow='autoplay; encrypted-media; fullscreen; picture-in-picture';
+    // Delegation allows SOOP to request access; the user still controls consent.
+    if(data.platform==='SOOP')iframe.allow+='; local-network-access https://play.sooplive.com; local-network https://play.sooplive.com; loopback-network https://play.sooplive.com';
+    iframe.allowFullscreen=true;iframe.referrerPolicy='strict-origin-when-cross-origin';card.append(iframe);
+    if(data.experimental){const help=document.createElement('p');help.className='player-help';help.textContent=data.platform==='치지직'?'치지직이 외부 삽입을 차단하면 이 칸에서 재생할 수 없습니다. 위의 ‘시청 창’으로 원본 방송을 보세요.':'‘고화질 스트리머 연결 차단’이 뜨면 ‘해결 방법 보기’를 확인하고 브라우저의 로컬 네트워크 권한을 허용한 뒤 새로고침하세요. 허용 항목이 없거나 계속 차단되면 ‘시청 창’에서 원본 방송을 보세요.';card.append(help);}
     return;
   }
   const empty=document.createElement('div');empty.className='empty';
