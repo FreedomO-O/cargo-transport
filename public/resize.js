@@ -45,7 +45,7 @@ function makeHandle(axis,row,boundary){
 }
 function rebuild(){
   const next=[...grid.querySelectorAll('.card')];const key=next.map(card=>card.dataset.slot).join(',');
-  if(key===signature)return;signature=key;cards=next;count=cards.length;if(count<1||count>9)return;
+  if(key===signature&&next.every((card,index)=>card===cards[index]))return;signature=key;cards=next;count=cards.length;if(count<1||count>9)return;
   handles.forEach(handle=>handle.remove());handles=[];document.body.classList.remove('resizing');
   current=validateLayout(count,layouts[count]);layouts[count]=current;
   for(let row=1;row<current.rows.length-1;row++)makeHandle('row',0,row);
