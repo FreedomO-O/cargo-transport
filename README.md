@@ -1,5 +1,11 @@
 # Quad Live
 
+## GitHub Pages 배포
+
+저장소 Settings → Pages → Build and deployment → Source에서 **GitHub Actions**를 선택하세요. Actions 탭에서 **Deploy Quad Live to GitHub Pages** 워크플로를 실행하거나 실패한 실행을 다시 실행하면 됩니다. 이후 main에 푸시할 때마다 테스트 후 public 폴더가 자동 배포됩니다. 배포 완료 주소는 https://freedomo-o.github.io/cargo-transport/ 입니다. Actions의 성공 여부를 확인하기 전에는 배포 완료로 간주하지 마세요.
+
+이 배포는 정적 파일만 사용하므로 서버나 Node.js를 사용자 PC에 설치할 필요가 없습니다.
+
 PC에서 방송 URL 네 개를 2×2로 모아 보는 한국어 웹앱입니다. Node.js 20 이상만 필요하며 외부 npm 의존성은 없습니다.
 
 ```sh
