@@ -1,0 +1,30 @@
+name: Build Windows Desktop App
+on:
+  push:
+    branches: [main]
+    paths: ['desktop/**', 'public/sources.js', 'package.json', 'package-lock.json', 'desktop-layout.test.js', '.github/workflows/desktop.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run desktop:install
+      - run: npm test
+      - run: npm run desktop:smoke
+      - run: npm run desktop:build
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Quad-Live-Windows
+          path: dist/Quad-Live-*-Windows.exe
+          if-no-files-found: error
+          retention-days: 30

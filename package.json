@@ -1,1 +1,42 @@
-{"name":"quad-live","version":"1.0.0","private":true,"type":"module","scripts":{"start":"node server.js","test":"node --test"},"engines":{"node":">=20"}}
+{
+  "name": "quad-live",
+  "version": "0.2.0",
+  "description": "Four-stream desktop viewer for YouTube, SOOP and Chzzk",
+  "author": "FreedomO-O",
+  "private": true,
+  "type": "module",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "desktop": "electron .",
+    "desktop:install": "install-electron",
+    "desktop:smoke": "electron . --smoke-test",
+    "desktop:build": "electron-builder --win portable --x64"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "build": {
+    "appId": "com.quadlive.desktop",
+    "productName": "Quad Live",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "desktop/**/*",
+      "public/sources.js",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "artifactName": "Quad-Live-${version}-Windows.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3"
+  }
+}
