@@ -143,7 +143,7 @@ try {
             $SecondsLeft = [int][Math]::Ceiling($IntervalSeconds - $Timer.Elapsed.TotalSeconds)
             $Minutes = [int][Math]::Floor($SecondsLeft / 60)
             $Seconds = $SecondsLeft % 60
-            Write-Host ("`r다음 접속까지 {0:00}분 {1:00}초 / 중지: Ctrl+C   " -f $Minutes, $Seconds) -NoNewline
+            Write-Host ("`r자동 접속 시도: {0}회 | 다음 접속까지 {1:00}분 {2:00}초 | 중지: Ctrl+C   " -f $Attempt, $Minutes, $Seconds) -NoNewline
             Start-Sleep -Milliseconds 1000
         }
         Write-Host ''
