@@ -14,8 +14,19 @@ $IntervalSeconds = 1830
 $OpenSeconds = 15
 $Profile = Join-Path $env:LOCALAPPDATA 'CafeVisitorEdgeProfile'
 $LogDirectory = Join-Path $env:LOCALAPPDATA 'CafeVisitor'
-$null = New-Item -ItemType Directory -Path $LogDirectory -Force
-$LogPath = Join-Path $LogDirectory 'activity.log'
+if ($env:CAFE_VISITOR_SELF) {
+    $LogDirectory = Split-Path -Parent $env:CAFE_VISITOR_SELF
+} elseif ($PSScriptRoot) {
+    $LogDirectory = $PSScriptRoot
+}
+try {
+    $LogPath = Join-Path $LogDirectory 'cafe-visitor.log'
+    Add-Content -LiteralPath $LogPath -Value '' -Encoding UTF8 -ErrorAction Stop
+} catch {
+    $LogDirectory = Join-Path $env:LOCALAPPDATA 'CafeVisitor'
+    $null = New-Item -ItemType Directory -Path $LogDirectory -Force
+    $LogPath = Join-Path $LogDirectory 'activity.log'
+}
 function Write-Status([string]$Message) {
     $Line = ('[{0}] {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message)
     Write-Host $Line
@@ -28,10 +39,16 @@ $Candidates = @(
     "$env:LOCALAPPDATA\Microsoft\Edge\Application\msedge.exe"
 )
 $Edge = $Candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $Edge) { throw 'Microsoft Edge is required.' }
+Write-Status '========== 프로그램 시작 =========='
+Write-Status ('실행 기록 저장 위치: ' + $LogPath)
+if (-not $Edge) { Write-Status '오류: Microsoft Edge를 찾지 못했습니다.'; throw 'Microsoft Edge is required.' }
 $Mutex = New-Object System.Threading.Mutex($false, 'Local\CafeVisitorTruckerking')
-$Locked = $Mutex.WaitOne(0)
-if (-not $Locked) { $Mutex.Dispose(); throw 'Cafe visitor is already running.' }
+try { $Locked = $Mutex.WaitOne(0) }
+catch [System.Threading.AbandonedMutexException] {
+    $Locked = $true
+    Write-Status '이전 실행이 비정상 종료되어 실행 잠금을 복구했습니다.'
+}
+if (-not $Locked) { Write-Status '오류: 이미 실행 중입니다. 기존 창을 먼저 종료하세요.'; $Mutex.Dispose(); throw 'Cafe visitor is already running.' }
 function Close-CafeWindow {
     # Only stop Edge processes belonging to this dedicated browser profile.
     $Processes = Get-CimInstance Win32_Process -Filter "Name = 'msedge.exe'" -ErrorAction Stop |
@@ -62,6 +79,7 @@ try {
         } while ($Choice -notin @('1', '2', '3'))
     }
     if ($LoginOnly -or $Choice -in @('1', '3')) {
+        Write-Status '로그인 창 열기 요청'
         $LoginUrl = 'https://nid.naver.com/nidlogin.login?url=' + [Uri]::EscapeDataString($Url)
         Start-Process -FilePath $Edge -ArgumentList @(
             "--user-data-dir=`"$Profile`"",
@@ -72,7 +90,9 @@ try {
         )
         Write-Host '열린 Edge에서 직접 로그인하세요. 필요하면 로그인 상태 유지를 선택하세요.'
         Write-Host '카페에 로그인된 것을 확인한 뒤 이 콘솔로 돌아오세요.'
+        Write-Status '로그인 대기: 로그인 후 이 콘솔에서 Enter를 눌러야 반복을 시작합니다.'
         $null = Read-Host '준비되면 Enter (그 전에는 창을 자동으로 닫지 않습니다)'
+        Write-Status '사용자가 로그인 완료를 확인했습니다 (로그인 상태 자동 검증 아님). '
         Close-CafeWindow
         if ($LoginOnly -or $Choice -eq '3') { return }
     }
@@ -82,6 +102,8 @@ try {
         $Attempt++
         $Timer = [System.Diagnostics.Stopwatch]::StartNew()
         try {
+            Write-Status ("접속 시도 #{0} 시작: {1}" -f $Attempt, $Url)
+            $OpenTimer = [System.Diagnostics.Stopwatch]::StartNew()
             Start-Process -FilePath $Edge -ArgumentList @(
                 "--user-data-dir=`"$Profile`"",
                 "--app=$Url",
@@ -89,26 +111,57 @@ try {
                 '--disable-background-mode'
             ) -ErrorAction Stop
             Write-Status ("접속 시도 #{0}: 브라우저 열기 명령 완료" -f $Attempt)
-            Start-Sleep -Seconds $OpenSeconds
+            $WindowFound = $false
+            do {
+                $BrowserProcesses = Get-CimInstance Win32_Process -Filter "Name = 'msedge.exe'" -ErrorAction Stop |
+                    Where-Object { $_.CommandLine -and $_.CommandLine.Contains($Profile) }
+                foreach ($BrowserProcess in $BrowserProcesses) {
+                    $Window = Get-Process -Id $BrowserProcess.ProcessId -ErrorAction SilentlyContinue
+                    if ($Window -and $Window.MainWindowHandle -ne 0) { $WindowFound = $true; break }
+                }
+                if ($WindowFound) { break }
+                Start-Sleep -Milliseconds 500
+            } while ($OpenTimer.Elapsed.TotalSeconds -lt 5)
+            if ($WindowFound) {
+                Write-Status ("접속 시도 #{0}: Edge 창 열림 확인 (페이지 로딩/방문수 확인 아님)" -f $Attempt)
+            } else {
+                Write-Status ("접속 시도 #{0}: 5초 안에 Edge 창을 확인하지 못했습니다." -f $Attempt)
+            }
+            $HoldSeconds = [Math]::Max(0, $OpenSeconds - $OpenTimer.Elapsed.TotalSeconds)
+            Start-Sleep -Milliseconds ([int]($HoldSeconds * 1000))
+            Write-Status ("접속 시도 #{0}: 창 닫기 시작" -f $Attempt)
             Close-CafeWindow
-            Write-Status '창 닫기 완료'
+            Write-Status ("접속 시도 #{0}: 창 닫기 완료" -f $Attempt)
         } catch {
             Write-Status ('오류: ' + $_.Exception.Message)
+            Write-Status ('오류 위치: 줄 ' + $_.InvocationInfo.ScriptLineNumber + ' / ' + $_.FullyQualifiedErrorId)
             Write-Status '프로그램을 종료하지 않고 다음 예정 시각에 재시도합니다.'
         }
         $Remaining = [Math]::Max(0, $IntervalSeconds - $Timer.Elapsed.TotalSeconds)
         Write-Status ('다음 접속 예정: ' + (Get-Date).AddSeconds($Remaining).ToString('yyyy-MM-dd HH:mm:ss'))
+        $NextHeartbeat = $Timer.Elapsed.TotalSeconds + 60
         while ($Timer.Elapsed.TotalSeconds -lt $IntervalSeconds) {
             $SecondsLeft = [int][Math]::Ceiling($IntervalSeconds - $Timer.Elapsed.TotalSeconds)
+            if ($Timer.Elapsed.TotalSeconds -ge $NextHeartbeat) {
+                Write-Host ''
+                Write-Status ("대기 중: 다음 접속까지 {0}초" -f $SecondsLeft)
+                $NextHeartbeat = $Timer.Elapsed.TotalSeconds + 60
+            }
             $Minutes = [int][Math]::Floor($SecondsLeft / 60)
             $Seconds = $SecondsLeft % 60
             Write-Host ("`r다음 접속까지 {0:00}분 {1:00}초 / 중지: Ctrl+C   " -f $Minutes, $Seconds) -NoNewline
             Start-Sleep -Milliseconds 1000
         }
         Write-Host ''
+        Write-Status '대기 완료: 다음 접속 시도를 시작합니다.'
     } while ($true)
+} catch {
+    Write-Status ('프로그램 중단 오류: ' + $_.Exception.Message)
+    Write-Status ('오류 위치: 줄 ' + $_.InvocationInfo.ScriptLineNumber + ' / ' + $_.FullyQualifiedErrorId)
+    throw
 } finally {
     try { Close-CafeWindow } catch { Write-Warning $_.Exception.Message }
+    Write-Status '프로그램 종료'
     $Mutex.ReleaseMutex()
     $Mutex.Dispose()
 }
