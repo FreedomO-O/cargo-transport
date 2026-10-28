@@ -4,6 +4,15 @@ $Url = 'https://cafe.naver.com/truckerking'
 $IntervalSeconds = 1830
 $OpenSeconds = 15
 $Profile = Join-Path $env:LOCALAPPDATA 'CafeVisitorEdgeProfile'
+$LogDirectory = Join-Path $env:LOCALAPPDATA 'CafeVisitor'
+$null = New-Item -ItemType Directory -Path $LogDirectory -Force
+$LogPath = Join-Path $LogDirectory 'activity.log'
+function Write-Status([string]$Message) {
+    $Line = ('[{0}] {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message)
+    Write-Host $Line
+    try { Add-Content -LiteralPath $LogPath -Value $Line -Encoding UTF8 }
+    catch { Write-Warning '로그 파일을 저장하지 못했습니다.' }
+}
 $Candidates = @(
     "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
     "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
@@ -16,7 +25,7 @@ $Locked = $Mutex.WaitOne(0)
 if (-not $Locked) { $Mutex.Dispose(); throw 'Cafe visitor is already running.' }
 function Close-CafeWindow {
     # Only stop Edge processes belonging to this dedicated browser profile.
-    $Processes = Get-CimInstance Win32_Process -Filter "Name = 'msedge.exe'" |
+    $Processes = Get-CimInstance Win32_Process -Filter "Name = 'msedge.exe'" -ErrorAction Stop |
         Where-Object { $_.CommandLine -and $_.CommandLine.Contains($Profile) }
     foreach ($BrowserProcess in $Processes) {
         $Window = Get-Process -Id $BrowserProcess.ProcessId -ErrorAction SilentlyContinue
@@ -30,7 +39,8 @@ function Close-CafeWindow {
     }
 }
 try {
-    Write-Host 'Cafe visitor: Ctrl+C or close this console to stop.'
+    Write-Host '자동 접속 중에는 이 검은 창을 열어 두세요. 중지: Ctrl+C'
+    Write-Host ('실행 기록: ' + $LogPath)
     Write-Host 'Dedicated Edge profile; visit counting is not guaranteed.'
     $Choice = '1'
     if (-not $LoginOnly) {
@@ -57,22 +67,39 @@ try {
         Close-CafeWindow
         if ($LoginOnly -or $Choice -eq '3') { return }
     }
+    Write-Status '자동 반복 접속 시작 (간격: 30분 30초)'
+    $Attempt = 0
     do {
+        $Attempt++
         $Timer = [System.Diagnostics.Stopwatch]::StartNew()
-        Start-Process -FilePath $Edge -ArgumentList @(
-            "--user-data-dir=`"$Profile`"",
-            "--app=$Url",
-            '--no-first-run',
-            '--disable-background-mode'
-        )
-        Write-Host ('Opened: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
-        Start-Sleep -Seconds $OpenSeconds
-        Close-CafeWindow
+        try {
+            Start-Process -FilePath $Edge -ArgumentList @(
+                "--user-data-dir=`"$Profile`"",
+                "--app=$Url",
+                '--no-first-run',
+                '--disable-background-mode'
+            ) -ErrorAction Stop
+            Write-Status ("접속 시도 #{0}: 브라우저 열기 명령 완료" -f $Attempt)
+            Start-Sleep -Seconds $OpenSeconds
+            Close-CafeWindow
+            Write-Status '창 닫기 완료'
+        } catch {
+            Write-Status ('오류: ' + $_.Exception.Message)
+            Write-Status '프로그램을 종료하지 않고 다음 예정 시각에 재시도합니다.'
+        }
         $Remaining = [Math]::Max(0, $IntervalSeconds - $Timer.Elapsed.TotalSeconds)
-        Start-Sleep -Milliseconds ([int]($Remaining * 1000))
+        Write-Status ('다음 접속 예정: ' + (Get-Date).AddSeconds($Remaining).ToString('yyyy-MM-dd HH:mm:ss'))
+        while ($Timer.Elapsed.TotalSeconds -lt $IntervalSeconds) {
+            $SecondsLeft = [int][Math]::Ceiling($IntervalSeconds - $Timer.Elapsed.TotalSeconds)
+            $Minutes = [int][Math]::Floor($SecondsLeft / 60)
+            $Seconds = $SecondsLeft % 60
+            Write-Host ("`r다음 접속까지 {0:00}분 {1:00}초 / 중지: Ctrl+C   " -f $Minutes, $Seconds) -NoNewline
+            Start-Sleep -Milliseconds 1000
+        }
+        Write-Host ''
     } while ($true)
 } finally {
-    Close-CafeWindow
+    try { Close-CafeWindow } catch { Write-Warning $_.Exception.Message }
     $Mutex.ReleaseMutex()
     $Mutex.Dispose()
 }
