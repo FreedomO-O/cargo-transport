@@ -1,6 +1,7 @@
 ﻿param([switch]$LoginOnly)
 $ErrorActionPreference = 'Stop'
 $Url = 'https://cafe.naver.com/truckerking'
+$Version = '1.1.0'
 $IntervalSeconds = 1830
 $OpenSeconds = 15
 $Profile = Join-Path $env:LOCALAPPDATA 'CafeVisitorEdgeProfile'
@@ -30,7 +31,7 @@ $Candidates = @(
     "$env:LOCALAPPDATA\Microsoft\Edge\Application\msedge.exe"
 )
 $Edge = $Candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-Write-Status '========== 프로그램 시작 =========='
+Write-Status ('========== 카페 자동 접속 v' + $Version + ' ==========')
 Write-Status ('실행 기록 저장 위치: ' + $LogPath)
 if (-not $Edge) { Write-Status '오류: Microsoft Edge를 찾지 못했습니다.'; throw 'Microsoft Edge is required.' }
 $Mutex = New-Object System.Threading.Mutex($false, 'Local\CafeVisitorTruckerking')
@@ -89,8 +90,10 @@ try {
     }
     Write-Status '자동 반복 접속 시작 (간격: 30분 30초)'
     $Attempt = 0
+    Write-Status ('자동 접속 시도 횟수: ' + $Attempt + '회')
     do {
         $Attempt++
+        Write-Status ('자동 접속 시도 횟수: ' + $Attempt + '회')
         $Timer = [System.Diagnostics.Stopwatch]::StartNew()
         try {
             Write-Status ("접속 시도 #{0} 시작: {1}" -f $Attempt, $Url)
