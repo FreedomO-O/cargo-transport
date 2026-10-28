@@ -130,14 +130,8 @@ try {
         }
         $Remaining = [Math]::Max(0, $IntervalSeconds - $Timer.Elapsed.TotalSeconds)
         Write-Status ('다음 접속 예정: ' + (Get-Date).AddSeconds($Remaining).ToString('yyyy-MM-dd HH:mm:ss'))
-        $NextHeartbeat = $Timer.Elapsed.TotalSeconds + 60
         while ($Timer.Elapsed.TotalSeconds -lt $IntervalSeconds) {
             $SecondsLeft = [int][Math]::Ceiling($IntervalSeconds - $Timer.Elapsed.TotalSeconds)
-            if ($Timer.Elapsed.TotalSeconds -ge $NextHeartbeat) {
-                Write-Host ''
-                Write-Status ("대기 중: 다음 접속까지 {0}초" -f $SecondsLeft)
-                $NextHeartbeat = $Timer.Elapsed.TotalSeconds + 60
-            }
             $Minutes = [int][Math]::Floor($SecondsLeft / 60)
             $Seconds = $SecondsLeft % 60
             Write-Host ("`r다음 접속까지 {0:00}분 {1:00}초 / 중지: Ctrl+C   " -f $Minutes, $Seconds) -NoNewline
